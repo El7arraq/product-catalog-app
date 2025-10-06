@@ -21,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
             \App\Repositories\CategoryRepositoryInterface::class,
             \App\Repositories\CategoryRepository::class
         );
+        $this->app->bind(
+            \App\Services\FileUploadServiceInterface::class,
+            \App\Services\FileUploadService::class
+        );
     }
 
     /**

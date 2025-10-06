@@ -5,16 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\ProductService;
+use App\Services\FileUploadServiceInterface;
 use Illuminate\Support\Facades\Validator;
 
 
 class ProductController extends Controller
 {
     protected $productService;
+    protected $fileUploadService;
 
-    public function __construct(ProductService $productService)
+    public function __construct(ProductService $productService, FileUploadServiceInterface $fileUploadService)
     {
         $this->productService = $productService;
+        $this->fileUploadService = $fileUploadService;
     }
 
     public function index(Request $request)
@@ -28,11 +31,17 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $data = $request->only(['name', 'description', 'price', 'categories']);
+        
+        // Handle image upload using dedicated service
         if ($request->hasFile('image')) {
-            $image = $request->file('image');
-            $path = $image->store('products', 'public');
-            $data['image'] = $path;
+            try {
+                $imagePath = $this->fileUploadService->uploadImage($request->file('image'), 'products');
+                $data['image'] = $imagePath;
+            } catch (\InvalidArgumentException $e) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
         }
+        
         $result = $this->productService->createProduct($data);
         if (isset($result['errors'])) {
             return response()->json(['errors' => $result['errors']], 422);
@@ -52,6 +61,17 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $data = $request->only(['name', 'description', 'price', 'image', 'categories']);
+        
+        // Handle image upload using dedicated service
+        if ($request->hasFile('image')) {
+            try {
+                $imagePath = $this->fileUploadService->uploadImage($request->file('image'), 'products');
+                $data['image'] = $imagePath;
+            } catch (\InvalidArgumentException $e) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
+        }
+        
         $result = $this->productService->updateProduct($id, $data);
         if (isset($result['errors'])) {
             return response()->json(['errors' => $result['errors']], 422);
