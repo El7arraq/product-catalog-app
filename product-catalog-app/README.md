@@ -7,19 +7,65 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## About Laravel
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+# Product Catalog App
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
+- Create products (web, CLI)
+- List products with sorting/filtering by category (web)
+- Category hierarchy (parent/child)
+- Repository & service pattern for clean architecture
+- Automated tests for product creation
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Setup
+1. Clone the repo and install dependencies:
+	```bash
+	composer install
+	npm install
+	```
+2. Copy `.env.example` to `.env` and set DB credentials.
+3. Run migrations:
+	```bash
+	php artisan migrate
+	```
+4. Build frontend assets:
+	```bash
+	npm run dev
+	```
+
+## CLI Product Creation
+Create a product from the command line:
+```bash
+php artisan product:create
+```
+Follow the prompts for product details and category assignment.
+
+## Automated Tests
+Run feature tests:
+```bash
+php artisan test --filter=ProductCreationTest
+```
+
+
+## Build & Setup Automation
+- Backend: `composer install && php artisan migrate`
+- Frontend: `npm install && npm run dev`
+- Run tests: `php artisan test`
+
+You can automate these steps with a script or Makefile if desired.
+
+## Architecture
+- Eloquent models: `Product`, `Category`
+- Repository layer: wraps all Eloquent queries
+- Service layer: business logic and validation
+- API controllers: use service layer only
+- Vue.js frontend (see web UI branch)
+
+## Contributing
+Follow PSR standards and commit progressively for clean history.
+
+## License
+MIT
 
 ## Learning Laravel
 

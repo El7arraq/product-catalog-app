@@ -23,6 +23,10 @@ class ProductService
         if ($validation !== true) {
             return ['errors' => $validation];
         }
+        // Ensure image path is set or null
+        if (!isset($data['image'])) {
+            $data['image'] = null;
+        }
         return $this->productRepository->create($data);
     }
 

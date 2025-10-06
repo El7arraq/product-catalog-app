@@ -19,7 +19,7 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $sortBy = $request->query('sortBy'); // 'asc' or 'desc'
+        $sortBy = $request->query('sortBy');
         $categoryId = $request->query('categoryId');
         $products = $this->productService->listProducts($sortBy, $categoryId);
         return response()->json($products);
@@ -27,7 +27,12 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->only(['name', 'description', 'price', 'image', 'categories']);
+        $data = $request->only(['name', 'description', 'price', 'categories']);
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $path = $image->store('products', 'public');
+            $data['image'] = $path;
+        }
         $result = $this->productService->createProduct($data);
         if (isset($result['errors'])) {
             return response()->json(['errors' => $result['errors']], 422);

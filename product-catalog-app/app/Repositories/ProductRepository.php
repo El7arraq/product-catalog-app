@@ -7,10 +7,8 @@ class ProductRepository implements ProductRepositoryInterface
 {
     public function all($sortBy = null, $categoryId = null)
     {
-        $query = Product::query();
-        if ($sortBy) {
-            $query->orderBy('price', $sortBy);
-        }
+        $query = Product::with('categories');
+        $query->orderBy('price', $sortBy ?? 'desc');
         if ($categoryId) {
             $query->whereHas('categories', function ($q) use ($categoryId) {
                 $q->where('categories.id', $categoryId);
