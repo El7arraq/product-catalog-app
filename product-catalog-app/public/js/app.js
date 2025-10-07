@@ -22351,7 +22351,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       categories: [],
       errors: null,
       isEditMode: false,
-      editProductId: null
+      editProductId: null,
+      selectedImageFile: null,
+      selectedImagePreview: null,
+      currentImageUrl: null
     };
   },
   watch: {
@@ -22392,65 +22395,144 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     submitForm: function submitForm() {
       var _this2 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-        var res, data, _res, _data;
+        var formData, res, data, _res, _data, _t;
         return _regenerator().w(function (_context2) {
-          while (1) switch (_context2.n) {
+          while (1) switch (_context2.p = _context2.n) {
             case 0:
               _this2.errors = null;
+              _context2.p = 1;
+              formData = new FormData();
+              formData.append('name', _this2.form.name);
+              formData.append('description', _this2.form.description);
+              formData.append('price', _this2.form.price);
+
+              // Handle categories
+              _this2.form.categories.forEach(function (categoryId) {
+                formData.append('categories[]', categoryId);
+              });
+
+              // Handle image upload
+              if (_this2.selectedImageFile) {
+                formData.append('image', _this2.selectedImageFile);
+              } else if (_this2.form.image) {
+                formData.append('image', _this2.form.image);
+              }
+              console.log('Submitting form data:', {
+                name: _this2.form.name,
+                description: _this2.form.description,
+                price: _this2.form.price,
+                categories: _this2.form.categories,
+                hasImage: !!_this2.selectedImageFile,
+                isEditMode: _this2.isEditMode
+              });
               if (!_this2.isEditMode) {
-                _context2.n = 3;
+                _context2.n = 4;
                 break;
               }
-              _context2.n = 1;
-              return fetch("/api/products/".concat(_this2.editProductId), {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(_this2.form)
-              });
-            case 1:
-              res = _context2.v;
+              // Update product
+              formData.append('_method', 'PUT');
               _context2.n = 2;
-              return res.json();
+              return fetch("/api/products/".concat(_this2.editProductId), {
+                method: 'POST',
+                body: formData
+              });
             case 2:
+              res = _context2.v;
+              _context2.n = 3;
+              return res.json();
+            case 3:
               data = _context2.v;
+              console.log('Update response:', res.status, data);
               if (res.ok) {
                 alert('Product updated successfully!');
                 _this2.resetForm();
                 _this2.$emit('product-updated');
-              } else if (data.errors) {
-                _this2.errors = data.errors;
+              } else {
+                console.error('Update error:', data);
+                if (data.errors) {
+                  _this2.errors = data.errors;
+                } else {
+                  alert('Error updating product: ' + (data.message || 'Unknown error'));
+                }
               }
-              _context2.n = 6;
+              _context2.n = 7;
               break;
-            case 3:
-              _context2.n = 4;
+            case 4:
+              _context2.n = 5;
               return fetch('/api/products', {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(_this2.form)
+                body: formData
               });
-            case 4:
-              _res = _context2.v;
-              _context2.n = 5;
-              return _res.json();
             case 5:
+              _res = _context2.v;
+              _context2.n = 6;
+              return _res.json();
+            case 6:
               _data = _context2.v;
+              console.log('Create response:', _res.status, _data);
               if (_res.status === 201) {
                 alert('Product created successfully!');
                 _this2.resetForm();
                 _this2.$emit('product-created');
-              } else if (_data.errors) {
-                _this2.errors = _data.errors;
+              } else {
+                console.error('Create error:', _data);
+                if (_data.errors) {
+                  _this2.errors = _data.errors;
+                } else {
+                  alert('Error creating product: ' + (_data.message || 'Unknown error'));
+                }
               }
-            case 6:
+            case 7:
+              _context2.n = 9;
+              break;
+            case 8:
+              _context2.p = 8;
+              _t = _context2.v;
+              console.error('Submit error:', _t);
+              alert('Network error: ' + _t.message);
+            case 9:
               return _context2.a(2);
           }
-        }, _callee2);
+        }, _callee2, null, [[1, 8]]);
       }))();
+    },
+    handleImageUpload: function handleImageUpload(event) {
+      var _this3 = this;
+      var file = event.target.files[0];
+      if (file) {
+        // Basic validation
+        if (!file.type.startsWith('image/')) {
+          alert('Please select an image file');
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          // 2MB limit
+          alert('Image file must be less than 2MB');
+          return;
+        }
+        this.selectedImageFile = file;
+
+        // Create preview
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          _this3.selectedImagePreview = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    removeSelectedImage: function removeSelectedImage() {
+      this.selectedImageFile = null;
+      this.selectedImagePreview = null;
+      // Clear the file input
+      var fileInput = document.getElementById('product-image');
+      if (fileInput) {
+        fileInput.value = '';
+      }
+    },
+    getImageUrl: function getImageUrl(imagePath) {
+      if (!imagePath) return null;
+      if (imagePath.startsWith('http')) return imagePath;
+      return "/storage/".concat(imagePath);
     },
     loadProductForEdit: function loadProductForEdit(product) {
       this.form.name = product.name;
@@ -22460,6 +22542,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.form.categories = product.categories ? product.categories.map(function (cat) {
         return cat.id;
       }) : [];
+      this.currentImageUrl = this.getImageUrl(product.image);
+      this.selectedImageFile = null;
+      this.selectedImagePreview = null;
       this.isEditMode = true;
       this.editProductId = product.id;
       // Scroll to top of form
@@ -22478,6 +22563,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.isEditMode = false;
       this.editProductId = null;
       this.errors = null;
+      this.selectedImageFile = null;
+      this.selectedImagePreview = null;
+      this.currentImageUrl = null;
+      // Clear file input
+      var fileInput = document.getElementById('product-image');
+      if (fileInput) {
+        fileInput.value = '';
+      }
     },
     cancelEdit: function cancelEdit() {
       this.resetForm();
@@ -22745,30 +22838,40 @@ var _hoisted_6 = {
   "class": "product-form-field"
 };
 var _hoisted_7 = {
+  key: 0,
+  "class": "image-preview"
+};
+var _hoisted_8 = ["src"];
+var _hoisted_9 = {
+  key: 1,
+  "class": "image-preview"
+};
+var _hoisted_10 = ["src"];
+var _hoisted_11 = {
   "class": "product-form-field"
 };
-var _hoisted_8 = ["value"];
-var _hoisted_9 = {
+var _hoisted_12 = ["value"];
+var _hoisted_13 = {
   "class": "form-actions"
 };
-var _hoisted_10 = {
+var _hoisted_14 = {
   type: "submit",
   "class": "product-form-button"
 };
-var _hoisted_11 = {
+var _hoisted_15 = {
   key: 0,
   "class": "product-form-errors"
 };
-var _hoisted_12 = {
+var _hoisted_16 = {
   "class": "error-list"
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", _hoisted_2, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.isEditMode ? 'Edit Product' : 'Create Product'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
-    onSubmit: _cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onSubmit: _cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.submitForm && $options.submitForm.apply($options, arguments);
     }, ["prevent"])),
     "class": "product-form-box"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_3, [_cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_3, [_cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     "for": "product-name",
     "class": "product-form-label"
   }, "Name:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -22779,7 +22882,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     placeholder: "Name",
     required: "",
     "class": "product-form-input"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.form.name]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_4, [_cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.form.name]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_4, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     "for": "product-description",
     "class": "product-form-label"
   }, "Description:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
@@ -22791,7 +22894,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     required: "",
     rows: "4",
     "class": "product-form-textarea"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.form.description]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.form.description]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     "for": "product-price",
     "class": "product-form-label"
   }, "Price:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -22807,22 +22910,37 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "class": "product-form-input"
   }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.form.price, void 0, {
     number: true
-  }]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     "for": "product-image",
     "class": "product-form-label"
-  }, "Image URL:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, "Product Image:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    type: "file",
     id: "product-image",
-    "onUpdate:modelValue": _cache[3] || (_cache[3] = function ($event) {
-      return $data.form.image = $event;
+    onChange: _cache[3] || (_cache[3] = function () {
+      return $options.handleImageUpload && $options.handleImageUpload.apply($options, arguments);
     }),
-    placeholder: "Image URL",
-    "class": "product-form-input"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.form.image]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    accept: "image/*",
+    "class": "product-form-input-file"
+  }, null, 32 /* NEED_HYDRATION */), $data.selectedImagePreview ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_7, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("img", {
+    src: $data.selectedImagePreview,
+    alt: "Preview",
+    "class": "preview-image"
+  }, null, 8 /* PROPS */, _hoisted_8), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    onClick: _cache[4] || (_cache[4] = function () {
+      return $options.removeSelectedImage && $options.removeSelectedImage.apply($options, arguments);
+    }),
+    "class": "remove-button"
+  }, "Remove")])) : $data.currentImageUrl && !$data.selectedImageFile ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("img", {
+    src: $data.currentImageUrl,
+    alt: "Current image",
+    "class": "preview-image"
+  }, null, 8 /* PROPS */, _hoisted_10)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_11, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     "for": "product-categories",
     "class": "product-form-label"
   }, "Categories:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
     id: "product-categories",
-    "onUpdate:modelValue": _cache[4] || (_cache[4] = function ($event) {
+    "onUpdate:modelValue": _cache[5] || (_cache[5] = function ($event) {
       return $data.form.categories = $event;
     }),
     multiple: "",
@@ -22832,19 +22950,19 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
       key: cat.id,
       value: cat.id
-    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(cat.name), 9 /* TEXT, PROPS */, _hoisted_8);
-  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.form.categories]]), _cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("small", {
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(cat.name), 9 /* TEXT, PROPS */, _hoisted_12);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.form.categories]]), _cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("small", {
     "class": "product-form-hint"
-  }, "Hold Ctrl/Cmd to select multiple categories", -1 /* CACHED */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.isEditMode ? 'Update Product' : 'Create Product'), 1 /* TEXT */), $data.isEditMode ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+  }, "Hold Ctrl/Cmd to select multiple categories", -1 /* CACHED */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.isEditMode ? 'Update Product' : 'Create Product'), 1 /* TEXT */), $data.isEditMode ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
     key: 0,
     type: "button",
-    onClick: _cache[5] || (_cache[5] = function () {
+    onClick: _cache[6] || (_cache[6] = function () {
       return $options.cancelEdit && $options.cancelEdit.apply($options, arguments);
     }),
     "class": "cancel-button"
-  }, " Cancel ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 32 /* NEED_HYDRATION */), $data.errors ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, [_cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", {
+  }, " Cancel ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 32 /* NEED_HYDRATION */), $data.errors ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_15, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", {
     "class": "error-title"
-  }, "Please fix the following errors:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("ul", _hoisted_12, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.errors, function (error, field) {
+  }, "Please fix the following errors:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("ul", _hoisted_16, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.errors, function (error, field) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
       key: field,
       "class": "error-item"
@@ -23064,7 +23182,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "\n.product-form-container[data-v-0f96d7b8] {\n    max-width: 1200px;\n    margin: 0 auto;\n    padding: 2rem;\n}\n.product-form-title[data-v-0f96d7b8] {\n    font-size: 1.75rem;\n    font-weight: 600;\n    margin-bottom: 1.5rem;\n    color: #1f2937;\n}\n.product-form-box[data-v-0f96d7b8] {\n    background: #ffffff;\n    padding: 2rem;\n    border-radius: 8px;\n    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);\n}\n.product-form-field[data-v-0f96d7b8] {\n    display: flex;\n    flex-direction: column;\n    gap: 0.5rem;\n    margin-bottom: 1.5rem;\n}\n.product-form-label[data-v-0f96d7b8] {\n    font-weight: 500;\n    font-size: 0.875rem;\n    color: #374151;\n    text-transform: uppercase;\n    letter-spacing: 0.025em;\n}\n.product-form-input[data-v-0f96d7b8],\n.product-form-textarea[data-v-0f96d7b8],\n.product-form-select[data-v-0f96d7b8] {\n    width: 100%;\n    box-sizing: border-box;\n    padding: 0.625rem 0.875rem;\n    border: 1px solid #d1d5db;\n    border-radius: 6px;\n    font-size: 1rem;\n    transition: border-color 0.2s, box-shadow 0.2s;\n}\n.product-form-input[data-v-0f96d7b8]:focus,\n.product-form-textarea[data-v-0f96d7b8]:focus,\n.product-form-select[data-v-0f96d7b8]:focus {\n    outline: none;\n    border-color: #3b82f6;\n    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);\n}\n.product-form-textarea[data-v-0f96d7b8] {\n    resize: vertical;\n    min-height: 100px;\n    font-family: inherit;\n}\n.product-form-input-file[data-v-0f96d7b8] {\n    padding: 0.5rem;\n    border: 1px solid #d1d5db;\n    border-radius: 6px;\n    font-size: 0.875rem;\n    cursor: pointer;\n}\n.product-form-select[data-v-0f96d7b8] {\n    cursor: pointer;\n}\n.product-form-hint[data-v-0f96d7b8] {\n    font-size: 0.75rem;\n    color: #6b7280;\n    font-style: italic;\n}\n.form-actions[data-v-0f96d7b8] {\n    display: flex;\n    gap: 1rem;\n    align-items: center;\n}\n.product-form-button[data-v-0f96d7b8] {\n    flex: 1;\n    padding: 0.75rem 1.5rem;\n    background-color: #3b82f6;\n    color: white;\n    border: none;\n    border-radius: 6px;\n    font-size: 1rem;\n    font-weight: 500;\n    cursor: pointer;\n    transition: background-color 0.2s;\n}\n.product-form-button[data-v-0f96d7b8]:hover {\n    background-color: #2563eb;\n}\n.product-form-button[data-v-0f96d7b8]:active {\n    background-color: #1d4ed8;\n}\n.cancel-button[data-v-0f96d7b8] {\n    padding: 0.75rem 1.5rem;\n    background-color: #6b7280;\n    color: white;\n    border: none;\n    border-radius: 6px;\n    font-size: 1rem;\n    font-weight: 500;\n    cursor: pointer;\n    transition: background-color 0.2s;\n}\n.cancel-button[data-v-0f96d7b8]:hover {\n    background-color: #4b5563;\n}\n.product-form-errors[data-v-0f96d7b8] {\n    margin-top: 1.5rem;\n    padding: 1rem;\n    background-color: #fef2f2;\n    border: 1px solid #fecaca;\n    border-radius: 6px;\n}\n.error-title[data-v-0f96d7b8] {\n    font-size: 1rem;\n    font-weight: 600;\n    color: #991b1b;\n    margin-bottom: 0.75rem;\n}\n.error-list[data-v-0f96d7b8] {\n    list-style: none;\n    padding: 0;\n    margin: 0;\n}\n.error-item[data-v-0f96d7b8] {\n    padding: 0.5rem 0;\n    color: #dc2626;\n    font-size: 0.875rem;\n}\n.error-item strong[data-v-0f96d7b8] {\n    text-transform: capitalize;\n}\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "\n.product-form-container[data-v-0f96d7b8] {\n    max-width: 1200px;\n    margin: 0 auto;\n    padding: 2rem;\n}\n.product-form-title[data-v-0f96d7b8] {\n    font-size: 1.75rem;\n    font-weight: 600;\n    margin-bottom: 1.5rem;\n    color: #1f2937;\n}\n.product-form-box[data-v-0f96d7b8] {\n    background: #ffffff;\n    padding: 2rem;\n    border-radius: 8px;\n    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);\n}\n.product-form-field[data-v-0f96d7b8] {\n    display: flex;\n    flex-direction: column;\n    gap: 0.5rem;\n    margin-bottom: 1.5rem;\n}\n.product-form-label[data-v-0f96d7b8] {\n    font-weight: 500;\n    font-size: 0.875rem;\n    color: #374151;\n    text-transform: uppercase;\n    letter-spacing: 0.025em;\n}\n.product-form-input[data-v-0f96d7b8],\n.product-form-textarea[data-v-0f96d7b8],\n.product-form-select[data-v-0f96d7b8] {\n    width: 100%;\n    box-sizing: border-box;\n    padding: 0.625rem 0.875rem;\n    border: 1px solid #d1d5db;\n    border-radius: 6px;\n    font-size: 1rem;\n    transition: border-color 0.2s, box-shadow 0.2s;\n}\n.product-form-input[data-v-0f96d7b8]:focus,\n.product-form-textarea[data-v-0f96d7b8]:focus,\n.product-form-select[data-v-0f96d7b8]:focus {\n    outline: none;\n    border-color: #3b82f6;\n    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);\n}\n.product-form-textarea[data-v-0f96d7b8] {\n    resize: vertical;\n    min-height: 100px;\n    font-family: inherit;\n}\n.product-form-input-file[data-v-0f96d7b8] {\n    padding: 0.5rem;\n    border: 1px solid #d1d5db;\n    border-radius: 6px;\n    font-size: 0.875rem;\n    cursor: pointer;\n}\n.image-preview[data-v-0f96d7b8] {\n    margin-top: 1rem;\n    display: flex;\n    align-items: flex-start;\n    gap: 1rem;\n}\n.preview-image[data-v-0f96d7b8] {\n    max-width: 200px;\n    max-height: 200px;\n    border-radius: 6px;\n    border: 1px solid #d1d5db;\n    -o-object-fit: cover;\n       object-fit: cover;\n}\n.remove-button[data-v-0f96d7b8] {\n    padding: 0.5rem 1rem;\n    background-color: #ef4444;\n    color: white;\n    border: none;\n    border-radius: 4px;\n    font-size: 0.875rem;\n    cursor: pointer;\n    height: -moz-fit-content;\n    height: fit-content;\n}\n.remove-button[data-v-0f96d7b8]:hover {\n    background-color: #dc2626;\n}\n.product-form-select[data-v-0f96d7b8] {\n    cursor: pointer;\n}\n.product-form-hint[data-v-0f96d7b8] {\n    font-size: 0.75rem;\n    color: #6b7280;\n    font-style: italic;\n}\n.form-actions[data-v-0f96d7b8] {\n    display: flex;\n    gap: 1rem;\n    align-items: center;\n}\n.product-form-button[data-v-0f96d7b8] {\n    flex: 1;\n    padding: 0.75rem 1.5rem;\n    background-color: #3b82f6;\n    color: white;\n    border: none;\n    border-radius: 6px;\n    font-size: 1rem;\n    font-weight: 500;\n    cursor: pointer;\n    transition: background-color 0.2s;\n}\n.product-form-button[data-v-0f96d7b8]:hover {\n    background-color: #2563eb;\n}\n.product-form-button[data-v-0f96d7b8]:active {\n    background-color: #1d4ed8;\n}\n.cancel-button[data-v-0f96d7b8] {\n    padding: 0.75rem 1.5rem;\n    background-color: #6b7280;\n    color: white;\n    border: none;\n    border-radius: 6px;\n    font-size: 1rem;\n    font-weight: 500;\n    cursor: pointer;\n    transition: background-color 0.2s;\n}\n.cancel-button[data-v-0f96d7b8]:hover {\n    background-color: #4b5563;\n}\n.product-form-errors[data-v-0f96d7b8] {\n    margin-top: 1.5rem;\n    padding: 1rem;\n    background-color: #fef2f2;\n    border: 1px solid #fecaca;\n    border-radius: 6px;\n}\n.error-title[data-v-0f96d7b8] {\n    font-size: 1rem;\n    font-weight: 600;\n    color: #991b1b;\n    margin-bottom: 0.75rem;\n}\n.error-list[data-v-0f96d7b8] {\n    list-style: none;\n    padding: 0;\n    margin: 0;\n}\n.error-item[data-v-0f96d7b8] {\n    padding: 0.5rem 0;\n    color: #dc2626;\n    font-size: 0.875rem;\n}\n.error-item strong[data-v-0f96d7b8] {\n    text-transform: capitalize;\n}\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 

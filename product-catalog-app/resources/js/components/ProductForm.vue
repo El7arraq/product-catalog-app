@@ -41,13 +41,21 @@
             </div>
 
             <div class="product-form-field">
-                <label for="product-image" class="product-form-label">Image URL:</label>
+                <label for="product-image" class="product-form-label">Product Image:</label>
                 <input 
+                    type="file" 
                     id="product-image" 
-                    v-model="form.image" 
-                    placeholder="Image URL" 
-                    class="product-form-input" 
+                    @change="handleImageUpload" 
+                    accept="image/*"
+                    class="product-form-input-file" 
                 />
+                <div v-if="selectedImagePreview" class="image-preview">
+                    <img :src="selectedImagePreview" alt="Preview" class="preview-image" />
+                    <button type="button" @click="removeSelectedImage" class="remove-button">Remove</button>
+                </div>
+                <div v-else-if="currentImageUrl && !selectedImageFile" class="image-preview">
+                    <img :src="currentImageUrl" alt="Current image" class="preview-image" />
+                </div>
             </div>
 
             <div class="product-form-field">
@@ -107,7 +115,10 @@ export default {
             categories: [],
             errors: null,
             isEditMode: false,
-            editProductId: null
+            editProductId: null,
+            selectedImageFile: null,
+            selectedImagePreview: null,
+            currentImageUrl: null
         };
     },
     watch: {
@@ -130,38 +141,117 @@ export default {
         },
         async submitForm() {
             this.errors = null;
-      
-            if (this.isEditMode) {
-                // Update product
-                const res = await fetch(`/api/products/${this.editProductId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.form)
+            
+            try {
+                const formData = new FormData();
+                formData.append('name', this.form.name);
+                formData.append('description', this.form.description);
+                formData.append('price', this.form.price);
+                
+                // Handle categories
+                this.form.categories.forEach(categoryId => {
+                    formData.append('categories[]', categoryId);
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    alert('Product updated successfully!');
-                    this.resetForm();
-                    this.$emit('product-updated');
-                } else if (data.errors) {
-                    this.errors = data.errors;
+                
+                // Handle image upload
+                if (this.selectedImageFile) {
+                    formData.append('image', this.selectedImageFile);
+                } else if (this.form.image) {
+                    formData.append('image', this.form.image);
                 }
-            } else {
-                // Create product
-                const res = await fetch('/api/products', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.form)
+                
+                console.log('Submitting form data:', {
+                    name: this.form.name,
+                    description: this.form.description,
+                    price: this.form.price,
+                    categories: this.form.categories,
+                    hasImage: !!this.selectedImageFile,
+                    isEditMode: this.isEditMode
                 });
-                const data = await res.json();
-                if (res.status === 201) {
-                    alert('Product created successfully!');
-                    this.resetForm();
-                    this.$emit('product-created');
-                } else if (data.errors) {
-                    this.errors = data.errors;
+          
+                if (this.isEditMode) {
+                    // Update product
+                    formData.append('_method', 'PUT');
+                    const res = await fetch(`/api/products/${this.editProductId}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    console.log('Update response:', res.status, data);
+                    if (res.ok) {
+                        alert('Product updated successfully!');
+                        this.resetForm();
+                        this.$emit('product-updated');
+                    } else {
+                        console.error('Update error:', data);
+                        if (data.errors) {
+                            this.errors = data.errors;
+                        } else {
+                            alert('Error updating product: ' + (data.message || 'Unknown error'));
+                        }
+                    }
+                } else {
+                    // Create product
+                    const res = await fetch('/api/products', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    console.log('Create response:', res.status, data);
+                    if (res.status === 201) {
+                        alert('Product created successfully!');
+                        this.resetForm();
+                        this.$emit('product-created');
+                    } else {
+                        console.error('Create error:', data);
+                        if (data.errors) {
+                            this.errors = data.errors;
+                        } else {
+                            alert('Error creating product: ' + (data.message || 'Unknown error'));
+                        }
+                    }
                 }
+            } catch (error) {
+                console.error('Submit error:', error);
+                alert('Network error: ' + error.message);
             }
+        },
+        handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Basic validation
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file');
+                    return;
+                }
+                if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                    alert('Image file must be less than 2MB');
+                    return;
+                }
+                
+                this.selectedImageFile = file;
+                
+                // Create preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.selectedImagePreview = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+        removeSelectedImage() {
+            this.selectedImageFile = null;
+            this.selectedImagePreview = null;
+            // Clear the file input
+            const fileInput = document.getElementById('product-image');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        },
+        getImageUrl(imagePath) {
+            if (!imagePath) return null;
+            if (imagePath.startsWith('http')) return imagePath;
+            return `/storage/${imagePath}`;
         },
         loadProductForEdit(product) {
             this.form.name = product.name;
@@ -169,6 +259,9 @@ export default {
             this.form.price = product.price;
             this.form.image = product.image || '';
             this.form.categories = product.categories ? product.categories.map(cat => cat.id) : [];
+            this.currentImageUrl = this.getImageUrl(product.image);
+            this.selectedImageFile = null;
+            this.selectedImagePreview = null;
             this.isEditMode = true;
             this.editProductId = product.id;
             // Scroll to top of form
@@ -179,6 +272,14 @@ export default {
             this.isEditMode = false;
             this.editProductId = null;
             this.errors = null;
+            this.selectedImageFile = null;
+            this.selectedImagePreview = null;
+            this.currentImageUrl = null;
+            // Clear file input
+            const fileInput = document.getElementById('product-image');
+            if (fileInput) {
+                fileInput.value = '';
+            }
         },
         cancelEdit() {
             this.resetForm();
@@ -256,6 +357,36 @@ export default {
     border-radius: 6px;
     font-size: 0.875rem;
     cursor: pointer;
+}
+
+.image-preview {
+    margin-top: 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.preview-image {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    object-fit: cover;
+}
+
+.remove-button {
+    padding: 0.5rem 1rem;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    height: fit-content;
+}
+
+.remove-button:hover {
+    background-color: #dc2626;
 }
 
 .product-form-select {

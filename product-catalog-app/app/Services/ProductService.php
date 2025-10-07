@@ -2,63 +2,56 @@
 namespace App\Services;
 
 use App\Repositories\ProductRepositoryInterface;
+use Illuminate\Database\Eloquent\Model;
 
 class ProductService
 {
-    protected $productRepository;
+    private ProductRepositoryInterface $productRepository;
+    private ValidationService $validationService;
 
-    public function __construct(ProductRepositoryInterface $productRepository)
-    {
+    public function __construct(
+        ProductRepositoryInterface $productRepository,
+        ValidationService $validationService
+    ) {
         $this->productRepository = $productRepository;
+        $this->validationService = $validationService;
     }
 
-    public function listProducts($sortBy = null, $categoryId = null)
+    public function listProducts(?string $sortBy = null, ?int $categoryId = null): iterable
     {
         return $this->productRepository->all($sortBy, $categoryId);
     }
 
-    public function createProduct(array $data)
+    public function createProduct(array $data): array|Model
     {
-        $validation = $this->validateProduct($data);
+        $validation = $this->validationService->validateProductData($data);
         if ($validation !== true) {
             return ['errors' => $validation];
         }
-        // Ensure image path is set or null
+        
         if (!isset($data['image'])) {
             $data['image'] = null;
         }
-        return $this->productRepository->create($data);
+        
+        return $this->productRepository->createWithCategories($data);
     }
 
-    public function updateProduct($id, array $data)
+    public function updateProduct(int $id, array $data): array|Model
     {
-        $validation = $this->validateProduct($data, true);
+        $validation = $this->validationService->validateProductData($data, true);
         if ($validation !== true) {
             return ['errors' => $validation];
         }
-        return $this->productRepository->update($id, $data);
+        
+        return $this->productRepository->updateWithCategories($id, $data);
     }
 
-    private function validateProduct(array $data, $isUpdate = false)
-    {
-        $rules = [
-            'name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
-            'description' => $isUpdate ? 'sometimes|required|string' : 'required|string',
-            'price' => $isUpdate ? 'sometimes|required|numeric' : 'required|numeric',
-            'image' => 'nullable|string',
-            'categories' => 'array',
-            'categories.*' => 'integer|exists:categories,id',
-        ];
-        $validator = \Validator::make($data, $rules);
-        return $validator->fails() ? $validator->errors() : true;
-    }
-
-    public function deleteProduct($id)
+    public function deleteProduct(int $id): bool
     {
         return $this->productRepository->delete($id);
     }
 
-    public function findProduct($id)
+    public function findProduct(int $id): Model
     {
         return $this->productRepository->find($id);
     }

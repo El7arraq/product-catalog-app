@@ -2,55 +2,52 @@
 namespace App\Services;
 
 use App\Repositories\CategoryRepositoryInterface;
+use Illuminate\Database\Eloquent\Model;
 
 class CategoryService
 {
-    protected $categoryRepository;
+    private CategoryRepositoryInterface $categoryRepository;
+    private ValidationService $validationService;
 
-    public function __construct(CategoryRepositoryInterface $categoryRepository)
-    {
+    public function __construct(
+        CategoryRepositoryInterface $categoryRepository,
+        ValidationService $validationService
+    ) {
         $this->categoryRepository = $categoryRepository;
+        $this->validationService = $validationService;
     }
 
-    public function listCategories()
+    public function listCategories(): iterable
     {
         return $this->categoryRepository->all();
     }
 
-    public function createCategory(array $data)
+    public function createCategory(array $data): array|Model
     {
-        $validation = $this->validateCategory($data);
+        $validation = $this->validationService->validateCategoryData($data);
         if ($validation !== true) {
             return ['errors' => $validation];
         }
+        
         return $this->categoryRepository->create($data);
     }
 
-    public function updateCategory($id, array $data)
+    public function updateCategory(int $id, array $data): array|Model
     {
-        $validation = $this->validateCategory($data, true);
+        $validation = $this->validationService->validateCategoryData($data, true);
         if ($validation !== true) {
             return ['errors' => $validation];
         }
+        
         return $this->categoryRepository->update($id, $data);
     }
 
-    private function validateCategory(array $data, $isUpdate = false)
-    {
-        $rules = [
-            'name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
-            'parent_id' => 'nullable|integer|exists:categories,id',
-        ];
-        $validator = \Validator::make($data, $rules);
-        return $validator->fails() ? $validator->errors() : true;
-    }
-
-    public function deleteCategory($id)
+    public function deleteCategory(int $id): bool
     {
         return $this->categoryRepository->delete($id);
     }
 
-    public function findCategory($id)
+    public function findCategory(int $id): Model
     {
         return $this->categoryRepository->find($id);
     }

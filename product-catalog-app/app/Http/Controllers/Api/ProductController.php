@@ -1,38 +1,40 @@
 <?php
-
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Services\ProductService;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Services\FileUploadServiceInterface;
-use Illuminate\Support\Facades\Validator;
-
+use App\Services\ProductService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    protected $productService;
-    protected $fileUploadService;
+    private ProductService $productService;
+    private FileUploadServiceInterface $fileUploadService;
 
-    public function __construct(ProductService $productService, FileUploadServiceInterface $fileUploadService)
-    {
+    public function __construct(
+        ProductService $productService,
+        FileUploadServiceInterface $fileUploadService
+    ) {
         $this->productService = $productService;
         $this->fileUploadService = $fileUploadService;
     }
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $sortBy = $request->query('sortBy');
-        $categoryId = $request->query('categoryId');
+        $categoryId = $request->query('categoryId') ? (int) $request->query('categoryId') : null;
         $products = $this->productService->listProducts($sortBy, $categoryId);
+        
         return response()->json($products);
     }
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request): JsonResponse
     {
         $data = $request->only(['name', 'description', 'price', 'categories']);
         
-        // Handle image upload using dedicated service
         if ($request->hasFile('image')) {
             try {
                 $imagePath = $this->fileUploadService->uploadImage($request->file('image'), 'products');
@@ -46,23 +48,20 @@ class ProductController extends Controller
         if (isset($result['errors'])) {
             return response()->json(['errors' => $result['errors']], 422);
         }
-        if ($request->has('categories')) {
-            $result->categories()->sync($request->input('categories'));
-        }
+        
         return response()->json($result, 201);
     }
 
-    public function show($id)
+    public function show(int $id): JsonResponse
     {
         $product = $this->productService->findProduct($id);
         return response()->json($product);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateProductRequest $request, int $id): JsonResponse
     {
         $data = $request->only(['name', 'description', 'price', 'image', 'categories']);
         
-        // Handle image upload using dedicated service
         if ($request->hasFile('image')) {
             try {
                 $imagePath = $this->fileUploadService->uploadImage($request->file('image'), 'products');
@@ -76,13 +75,11 @@ class ProductController extends Controller
         if (isset($result['errors'])) {
             return response()->json(['errors' => $result['errors']], 422);
         }
-        if ($request->has('categories')) {
-            $result->categories()->sync($request->input('categories'));
-        }
+        
         return response()->json($result);
     }
 
-    public function destroy($id)
+    public function destroy(int $id): JsonResponse
     {
         $this->productService->deleteProduct($id);
         return response()->json(['message' => 'Product deleted successfully.']);
